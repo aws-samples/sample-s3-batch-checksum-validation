@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "s3-batch-checksum-validation"
+version = "1.0.0"
+description = "S3 Batch Operations checksum validation workflow for media organizations"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "AWS Solutions", email = "aws-solutions@amazon.com"}
+]
+requires-python = ">=3.11"
+dependencies = [
+    "boto3>=1.26.0",
+    "botocore>=1.29.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "moto[all]>=4.2.0",
+    "coverage>=7.0.0",
+    "responses>=0.23.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "moto[all]>=4.2.0",
+    "boto3>=1.26.0",
+]
+cdk = [
+    "aws-cdk-lib>=2.80.0",
+    "constructs>=10.0.0",
+    "cdk-nag>=2.27.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/aws-samples/s3-batch-checksum-validation"
+Repository = "https://github.com/aws-samples/s3-batch-checksum-validation"
+Documentation = "https://github.com/aws-samples/s3-batch-checksum-validation/blob/main/README.md"
+Issues = "https://github.com/aws-samples/s3-batch-checksum-validation/issues"
+
+[tool.setuptools]
+packages = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--disable-warnings",
+    "--color=yes",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.coverage.run]
+source = ["lambda_functions"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/venv/*",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "moto[all]>=4.2.0",
+    "coverage>=7.0.0",
+    "responses>=0.23.0",
+]

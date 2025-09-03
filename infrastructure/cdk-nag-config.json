@@ -1,0 +1,25 @@
+{
+  "rules": {
+    "AwsSolutions-IAM4": {
+      "reason": "AWS managed policies are acceptable for Lambda execution roles in this use case"
+    },
+    "AwsSolutions-IAM5": {
+      "reason": "Wildcard permissions are needed for S3 batch operations and cross-bucket access"
+    },
+    "AwsSolutions-L1": {
+      "reason": "Lambda runtime version is managed through deployment pipeline"
+    },
+    "AwsSolutions-S1": {
+      "reason": "S3 access logging not required for manifest bucket in this demo"
+    },
+    "AwsSolutions-S10": {
+      "reason": "S3 bucket SSL-only access will be enforced via bucket policy"
+    }
+  },
+  "suppressions": [
+    {
+      "id": "AwsSolutions-DDB3",
+      "reason": "Point-in-time recovery not required for temporary checksum data with TTL"
+    }
+  ]
+}

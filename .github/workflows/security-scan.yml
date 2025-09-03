@@ -1,0 +1,148 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/security-scan.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infrastructure/**'
+      - '.github/workflows/security-scan.yml'
+  schedule:
+    # Run weekly security scans on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+# Explicit permissions to avoid write-all (CKV2_GHA_1)
+permissions:
+  contents: read          # Read repository contents
+  actions: read          # Read workflow artifacts
+  pull-requests: write   # Comment on PRs with security results
+
+jobs:
+  cdk-nag-scan:
+    name: CDK-Nag Security Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+      
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[cdk]"
+        working-directory: ./
+      
+      - name: Run CDK-Nag Security Analysis
+        run: |
+          cd infrastructure
+          echo "🔍 Running CDK-Nag security analysis..."
+          
+          # Analyze development environment
+          echo "📋 Development Environment Analysis:"
+          cdk synth --context environment=dev --context account=123456789012 --context region=us-east-1 2>&1 | tee cdk-nag-dev.log
+          
+          # Analyze production environment  
+          echo "📋 Production Environment Analysis:"
+          cdk synth --context environment=prod --context account=123456789012 --context region=us-east-1 2>&1 | tee cdk-nag-prod.log
+          
+          # Check for any ERROR level findings
+          if grep -q "ERROR" cdk-nag-*.log; then
+            echo "❌ CDK-Nag found ERROR level security issues!"
+            echo "Please review and fix the following findings:"
+            grep "ERROR" cdk-nag-*.log
+            exit 1
+          fi
+          
+          # Check for WARNING level findings
+          if grep -q "WARNING" cdk-nag-*.log; then
+            echo "⚠️ CDK-Nag found WARNING level security issues:"
+            grep "WARNING" cdk-nag-*.log
+            echo "Consider addressing these findings or adding suppressions with justification."
+          fi
+          
+          echo "✅ CDK-Nag security analysis completed successfully!"
+      
+      - name: Upload CDK-Nag Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cdk-nag-results
+          path: infrastructure/cdk-nag-*.log
+          retention-days: 30
+      
+      - name: Comment PR with Security Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const devLog = fs.readFileSync('infrastructure/cdk-nag-dev.log', 'utf8');
+              const prodLog = fs.readFileSync('infrastructure/cdk-nag-prod.log', 'utf8');
+              
+              const errorCount = (devLog + prodLog).split('ERROR').length - 1;
+              const warningCount = (devLog + prodLog).split('WARNING').length - 1;
+              const suppressedCount = (devLog + prodLog).split('SUPPRESSED').length - 1;
+              
+              const comment = `## 🔍 CDK-Nag Security Analysis Results
+              
+              | Environment | Status |
+              |-------------|--------|
+              | Development | ✅ Analyzed |
+              | Production | ✅ Analyzed |
+              
+              ### Summary
+              - **Errors**: ${errorCount}
+              - **Warnings**: ${warningCount}  
+              - **Suppressed**: ${suppressedCount}
+              
+              ${errorCount > 0 ? '❌ **Action Required**: Please address ERROR level findings before merging.' : ''}
+              ${warningCount > 0 ? '⚠️ **Review Recommended**: Consider addressing WARNING level findings.' : ''}
+              ${errorCount === 0 && warningCount === 0 ? '✅ **No security issues found!**' : ''}
+              
+              <details>
+              <summary>View detailed results</summary>
+              
+              ### Development Environment
+              \`\`\`
+              ${devLog.slice(-2000)}
+              \`\`\`
+              
+              ### Production Environment  
+              \`\`\`
+              ${prodLog.slice(-2000)}
+              \`\`\`
+              </details>
+              
+              For more information about CDK-Nag rules, see the [documentation](https://github.com/cdklabs/cdk-nag/blob/main/RULES.md).`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            } catch (error) {
+              console.log('Could not read CDK-Nag logs:', error.message);
+            }
